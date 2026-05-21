@@ -84,7 +84,7 @@ const searchGoogleBooks = async (query) => {
   const key = process.env.GOOGLE_BOOKS_API_KEY?.trim();
   if (!key) throw new Error("GOOGLE_BOOKS_API_KEY is not set in backend/.env");
 
-  const { data } = await axios.get("https://www.googleapis.com/volumes", {
+  const { data } = await axios.get("https://www.googleapis.com/books/v1/volumes", {
     params: { q: query.trim(), maxResults: 8, key },
     timeout: 12000,
   });

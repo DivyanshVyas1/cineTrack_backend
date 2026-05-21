@@ -23,7 +23,21 @@ const app = express();
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      // Allow localhost and any vercel deployment URL
+      if (
+        origin.startsWith("http://localhost:") ||
+        origin.endsWith("vercel.app") ||
+        origin === process.env.CLIENT_URL
+      ) {
+        return callback(null, true);
+      }
+      
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
