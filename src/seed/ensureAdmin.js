@@ -10,7 +10,6 @@ const ensureAdmin = async () => {
     if (process.env.ADMIN_PASSWORD) {
       existingAdmin.password = process.env.ADMIN_PASSWORD;
       await existingAdmin.save();
-      console.log("Admin password has been reset to match .env");
     }
     return { created: false, message: "Admin account already exists, password synced" };
   }
