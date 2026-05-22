@@ -7,7 +7,12 @@ const User = require("../models/User");
 const ensureAdmin = async () => {
   const existingAdmin = await User.findOne({ role: "admin" });
   if (existingAdmin) {
-    return { created: false, message: "Admin account already exists" };
+    if (process.env.ADMIN_PASSWORD) {
+      existingAdmin.password = process.env.ADMIN_PASSWORD;
+      await existingAdmin.save();
+      console.log("Admin password has been reset to match .env");
+    }
+    return { created: false, message: "Admin account already exists, password synced" };
   }
 
   const email = process.env.ADMIN_EMAIL;

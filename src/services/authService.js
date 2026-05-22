@@ -23,6 +23,9 @@ const login = async ({ email, password }) => {
   if (!user || !(await user.comparePassword(password))) {
     throw new Error("Invalid email or password");
   }
+  if (user.isBanned) {
+    throw new Error("This account has been banned by the administrator.");
+  }
   const safeUser = user.toObject();
   delete safeUser.password;
   const token = generateToken({ id: user._id, role: user.role });

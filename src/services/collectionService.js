@@ -87,11 +87,53 @@ const getUserCollection = async ({ username, tab, section, viewerId }) => {
   }
 
   if (section === "favorites") {
-    const entries = await UserListEntry.find({ user: user._id, listType: "favorite" })
-      .populate({ path: "movie", match: { type: listMovieType } })
-      .sort({ createdAt: -1 });
+    const postQuery = { user: user._id, type: mediaType };
+    if (!isOwner) postQuery.visibility = "public";
+    const posts = await Post.find(postQuery).sort({ createdAt: -1 });
+    
+    const postIds = posts.map((p) => p._id);
+    const Like = require("../models/Like");
+    const Comment = require("../models/Comment");
+
+    const [likeCounts, commentCounts, myLikes] = await Promise.all([
+      Like.aggregate([
+        { $match: { post: { $in: postIds } } },
+        { $group: { _id: "$post", count: { $sum: 1 } } },
+      ]),
+      Comment.aggregate([
+        { $match: { post: { $in: postIds } } },
+        { $group: { _id: "$post", count: { $sum: 1 } } },
+      ]),
+      viewerId ? Like.find({ user: viewerId, post: { $in: postIds } }).select("post") : [],
+    ]);
+
+    const likeMap = Object.fromEntries(likeCounts.map((l) => [String(l._id), l.count]));
+    const commentMap = Object.fromEntries(commentCounts.map((c) => [String(c._id), c.count]));
+    const myLikeSet = new Set(myLikes.map((l) => String(l.post)));
+
+    const items = posts.map((p) => ({
+      ...p.toObject(),
+      likesCount: likeMap[String(p._id)] || 0,
+      commentsCount: commentMap[String(p._id)] || 0,
+      isLiked: myLikeSet.has(String(p._id)),
+      movie: {
+        _id: p._id,
+        title: p.title,
+        poster: p.poster,
+        type: p.type === "series" ? "show" : p.type,
+        artistName: p.artistName,
+        previewUrl: p.previewUrl,
+        youtubeVideoId: p.youtubeVideoId,
+        youtubeUrl: p.youtubeUrl,
+      },
+    }));
+    
+    // For favorites, we need the favorite flags even if not owner (to know which are favorited)
+    const itemsWithFav = items.length ? await attachFavoriteFlags(user._id, items) : items;
+    const favoritePosts = itemsWithFav.filter((p) => p.isFavorite);
+    
     return {
-      items: entries.filter((e) => e.movie),
+      items: favoritePosts,
       type: "favorites",
     };
   }

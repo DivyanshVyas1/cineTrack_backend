@@ -12,7 +12,14 @@ const getProfileByUsername = async (username, viewerId) => {
   if (!user) throw new Error("User not found");
 
   const isOwner = viewerId && String(user._id) === String(viewerId);
-  if (user.isPrivate && !isOwner) {
+  
+  let isAdmin = false;
+  if (viewerId) {
+    const viewer = await User.findById(viewerId);
+    if (viewer && viewer.role === "admin") isAdmin = true;
+  }
+
+  if (user.isPrivate && !isOwner && !isAdmin) {
     const status = viewerId
       ? await socialService.getFollowStatus(viewerId, username)
       : { isFollowing: false, requestPending: false, followersCount: 0, followingCount: 0 };
@@ -100,7 +107,8 @@ const getUserReviews = async (username, viewerId) => {
 
   const isOwner = viewerId && String(user._id) === String(viewerId);
   if (user.isPrivate && !isOwner) {
-    throw new Error("This profile is private");
+    const canView = await socialService.canViewPrivateUserContent(viewerId, user._id);
+    if (!canView) throw new Error("This profile is private");
   }
 
   return Review.find({ user: user._id })

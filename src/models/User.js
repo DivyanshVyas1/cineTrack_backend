@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
     bio: { type: String, default: "" },
     isPrivate: { type: Boolean, default: false },
     role: { type: String, enum: ["user", "admin"], default: "user" },
+    isBanned: { type: Boolean, default: false },
     tasteScore: { type: Number, default: 0 },
     favoriteCharacters: [
       {

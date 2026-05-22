@@ -69,8 +69,15 @@ const getFeed = async (viewerId) => {
     .sort({ createdAt: -1 })
     .limit(80);
 
+  let isAdmin = false;
+  if (viewerId) {
+    const viewer = await User.findById(viewerId);
+    if (viewer && viewer.role === "admin") isAdmin = true;
+  }
+
   const filtered = posts.filter((item) => {
     if (!item.user?.isPrivate) return true;
+    if (isAdmin) return true;
     return viewerId && String(item.user._id) === String(viewerId);
   });
 

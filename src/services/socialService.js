@@ -7,6 +7,10 @@ const User = require("../models/User");
 const canViewPrivateUserContent = async (viewerId, profileUserId) => {
   if (!viewerId) return false;
   if (String(viewerId) === String(profileUserId)) return true;
+  
+  const viewer = await User.findById(viewerId);
+  if (viewer && viewer.role === "admin") return true;
+
   const following = await Follow.exists({ follower: viewerId, following: profileUserId });
   return Boolean(following);
 };
