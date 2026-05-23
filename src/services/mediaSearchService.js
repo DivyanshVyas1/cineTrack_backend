@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const TMDB_BASE = "https://api.themoviedb.org/3";
+const TMDB_BASE = "https://api.tmdb.org/3";
 const TMDB_IMAGE = "https://image.tmdb.org/t/p/w500";
 
 let movieGenreMap = null;

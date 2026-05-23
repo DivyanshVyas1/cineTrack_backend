@@ -51,6 +51,16 @@ app.get("/api/health", (_req, res) => {
   res.status(200).json({ success: true, message: "CineTrack API is running" });
 });
 
+const connectDB = require("./config/db");
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/movies", movieRoutes);
 app.use("/api/posts", postRoutes);
