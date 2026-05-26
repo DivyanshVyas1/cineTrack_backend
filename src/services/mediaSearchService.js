@@ -29,18 +29,24 @@ const tmdbGet = async (path, extraParams = {}) => {
 };
 
 const loadGenreMaps = async () => {
-  try {
-    if (!movieGenreMap) {
+  if (!movieGenreMap || Object.keys(movieGenreMap).length === 0) {
+    try {
       const data = await tmdbGet("/genre/movie/list");
       movieGenreMap = Object.fromEntries((data.genres || []).map((g) => [g.id, g.name]));
+    } catch (err) {
+      console.error("Failed to load movie genres:", err.message);
+      movieGenreMap = {};
     }
-    if (!tvGenreMap) {
+  }
+
+  if (!tvGenreMap || Object.keys(tvGenreMap).length === 0) {
+    try {
       const data = await tmdbGet("/genre/tv/list");
       tvGenreMap = Object.fromEntries((data.genres || []).map((g) => [g.id, g.name]));
+    } catch (err) {
+      console.error("Failed to load tv genres:", err.message);
+      tvGenreMap = {};
     }
-  } catch {
-    movieGenreMap = movieGenreMap || {};
-    tvGenreMap = tvGenreMap || {};
   }
 };
 
