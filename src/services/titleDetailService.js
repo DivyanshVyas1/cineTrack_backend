@@ -13,9 +13,22 @@ const buildTitleQuery = (type, title, externalId) => {
   const trimmed = (title || "").trim();
   if (!trimmed) return null;
 
+  const titleRegex = new RegExp(`^${escapeRegex(trimmed)}$`, "i");
+
+  // For music, match by externalId OR title to catch all reviews for the same song
+  if (postType === "music" && externalId?.trim()) {
+    return {
+      type: postType,
+      $or: [
+        { externalId: externalId.trim() },
+        { title: titleRegex },
+      ],
+    };
+  }
+
   const query = {
     type: postType,
-    title: new RegExp(`^${escapeRegex(trimmed)}$`, "i"),
+    title: titleRegex,
   };
   if (externalId?.trim()) query.externalId = externalId.trim();
   return query;

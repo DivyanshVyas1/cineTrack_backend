@@ -21,6 +21,7 @@ const {
   getFollowRequests,
   acceptFollowRequest,
   rejectFollowRequest,
+  toggleLike,
 } = require("../controllers/socialController");
 const authMiddleware = require("../middleware/authMiddleware");
 const optionalAuthMiddleware = require("../middleware/optionalAuthMiddleware");
@@ -43,6 +44,7 @@ router.get("/:username/followers", optionalAuthMiddleware, getFollowers);
 router.get("/:username/following", optionalAuthMiddleware, getFollowing);
 router.get("/:username/collection", optionalAuthMiddleware, getCollection);
 router.post("/:username/taste", authMiddleware, rateUserTaste);
+router.post("/:id/like", authMiddleware, toggleLike);
 router.get("/:username/reviews", optionalAuthMiddleware, getReviews);
 router.get("/:username", optionalAuthMiddleware, getProfile);
 

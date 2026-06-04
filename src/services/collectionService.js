@@ -34,7 +34,11 @@ const getUserCollection = async ({ username, tab, section, viewerId }) => {
 
   if (section === "all") {
     const postQuery = { user: user._id, type: mediaType };
-    if (!isOwner) postQuery.visibility = "public";
+    if (!isOwner) {
+      if (!user.isPrivate || !canViewContent) {
+        postQuery.visibility = "public";
+      }
+    }
     const posts = await Post.find(postQuery).sort({ createdAt: -1 });
     
     const postIds = posts.map((p) => p._id);
@@ -88,7 +92,11 @@ const getUserCollection = async ({ username, tab, section, viewerId }) => {
 
   if (section === "favorites") {
     const postQuery = { user: user._id, type: mediaType };
-    if (!isOwner) postQuery.visibility = "public";
+    if (!isOwner) {
+      if (!user.isPrivate || !canViewContent) {
+        postQuery.visibility = "public";
+      }
+    }
     const posts = await Post.find(postQuery).sort({ createdAt: -1 });
     
     const postIds = posts.map((p) => p._id);

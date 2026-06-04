@@ -26,6 +26,7 @@ const getProfileByUsername = async (username, viewerId) => {
     const canViewContent = status.isFollowing;
     const genreOverall = await getGenreStatsForUser(Post, user._id);
     const tasteMatch = viewerId ? await getTasteMatchBetween(viewerId, user._id) : null;
+    const postsCount = await Post.countDocuments({ user: user._id });
 
     return {
       user: {
@@ -47,13 +48,14 @@ const getProfileByUsername = async (username, viewerId) => {
       stats: {
         followersCount: status.followersCount,
         followingCount: status.followingCount,
+        postsCount,
         averageRating: null,
         ratingsCount: 0,
       },
     };
   }
 
-  const [social, ratingStats, tasteReviews, genreOverall] = await Promise.all([
+  const [social, ratingStats, tasteReviews, genreOverall, postsCount] = await Promise.all([
     socialService.getSocialStats(user._id),
     getCommunityAverageRating(user._id),
     TasteRating.find({ profileUser: user._id })
@@ -61,6 +63,7 @@ const getProfileByUsername = async (username, viewerId) => {
       .sort({ createdAt: -1 })
       .limit(12),
     getGenreStatsForUser(Post, user._id),
+    Post.countDocuments({ user: user._id }),
   ]);
 
   let isFollowing = false;
@@ -95,6 +98,7 @@ const getProfileByUsername = async (username, viewerId) => {
     stats: {
       followersCount: social.followersCount,
       followingCount: social.followingCount,
+      postsCount,
       averageRating: ratingStats.averageRating,
       ratingsCount: ratingStats.ratingsCount,
     },

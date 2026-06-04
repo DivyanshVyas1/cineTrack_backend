@@ -15,21 +15,20 @@ const canViewPrivateUserContent = async (viewerId, profileUserId) => {
   return Boolean(following);
 };
 
-const toggleLike = async (postId, userId) => {
-  const existing = await Like.findOne({ post: postId, user: userId });
+const toggleLike = async (targetUserId, userId) => {
+  const existing = await Like.findOne({ targetUser: targetUserId, user: userId });
 
   if (existing) {
     await existing.deleteOne();
-    const count = await Like.countDocuments({ post: postId });
+    const count = await Like.countDocuments({ targetUser: targetUserId });
     return { liked: false, likesCount: count };
   }
 
   // Get count BEFORE inserting so we can add 1 deterministically
-  // (avoids Atlas replica read lag where countDocuments sees stale data)
-  const countBefore = await Like.countDocuments({ post: postId });
+  const countBefore = await Like.countDocuments({ targetUser: targetUserId });
 
   try {
-    await Like.create({ post: postId, user: userId });
+    await Like.create({ targetUser: targetUserId, user: userId });
     return { liked: true, likesCount: countBefore + 1 };
   } catch (dupErr) {
     // Race condition: already liked by a concurrent request
@@ -38,8 +37,8 @@ const toggleLike = async (postId, userId) => {
   }
 };
 
-const getLikes = async (postId) => {
-  return Like.find({ post: postId })
+const getLikes = async (targetUserId) => {
+  return Like.find({ targetUser: targetUserId })
     .read("primary")
     .populate("user", "name username avatar")
     .sort({ createdAt: -1 });

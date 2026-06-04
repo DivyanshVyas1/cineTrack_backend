@@ -4,6 +4,8 @@ const Like = require("../models/Like");
 const Comment = require("../models/Comment");
 const User = require("../models/User");
 const { attachFavoriteFlags } = require("./postFavoriteService");
+const TasteRating = require("../models/TasteRating");
+const { computeGenreStats } = require("./genreStatsService");
 
 const getFollowingIds = async (userId) => {
   if (!userId) return [];
@@ -64,10 +66,21 @@ const createPost = async (userId, body) => {
 const getFeed = async (viewerId) => {
   const followingIds = await getFollowingIds(viewerId);
 
-  const posts = await Post.find({ visibility: "public" })
+  let postQuery = { visibility: "public" };
+  if (viewerId) {
+    postQuery = {
+      $or: [
+        { visibility: "public" },
+        { user: { $in: followingIds } },
+        { user: viewerId }
+      ]
+    };
+  }
+
+  const posts = await Post.find(postQuery)
     .populate("user", "name username avatar isPrivate")
     .sort({ createdAt: -1 })
-    .limit(80);
+    .limit(200);
 
   let isAdmin = false;
   if (viewerId) {
@@ -78,79 +91,96 @@ const getFeed = async (viewerId) => {
   const filtered = posts.filter((item) => {
     if (!item.user?.isPrivate) return true;
     if (isAdmin) return true;
-    return viewerId && String(item.user._id) === String(viewerId);
+    const authorId = String(item.user._id);
+    if (viewerId && authorId === String(viewerId)) return true;
+    if (viewerId && followingIds.includes(authorId)) return true;
+    return false;
   });
 
-  const postIds = filtered.map((p) => p._id);
+  // Group by user
+  const userMap = new Map();
+  for (const p of filtered) {
+    const authorId = String(p.user._id);
+    if (!userMap.has(authorId)) {
+      userMap.set(authorId, {
+        user: p.user,
+        posts: [],
+      });
+    }
+    if (userMap.get(authorId).posts.length < 15) {
+      userMap.get(authorId).posts.push(p);
+    }
+  }
 
-  const [likeCounts, commentCounts, myLikes] = await Promise.all([
+  const grouped = Array.from(userMap.values());
+  const userIds = grouped.map((g) => g.user._id);
+
+  // Fetch likes for these users (profile likes), taste ratings, and all posts for genre stats
+  const [likeCounts, myLikes, tasteAgs, allUserPosts] = await Promise.all([
     Like.aggregate([
-      { $match: { post: { $in: postIds } } },
-      { $group: { _id: "$post", count: { $sum: 1 } } },
+      { $match: { targetUser: { $in: userIds } } },
+      { $group: { _id: "$targetUser", count: { $sum: 1 } } },
     ]),
-    Comment.aggregate([
-      { $match: { post: { $in: postIds } } },
-      { $group: { _id: "$post", count: { $sum: 1 } } },
+    viewerId ? Like.find({ user: viewerId, targetUser: { $in: userIds } }).select("targetUser") : [],
+    TasteRating.aggregate([
+      { $match: { profileUser: { $in: userIds } } },
+      { $group: { _id: "$profileUser", avg: { $avg: "$score" }, count: { $sum: 1 } } }
     ]),
-    viewerId ? Like.find({ user: viewerId, post: { $in: postIds } }).select("post") : [],
+    Post.find({ user: { $in: userIds } }).select("user genres rating")
   ]);
 
   const likeMap = Object.fromEntries(likeCounts.map((l) => [String(l._id), l.count]));
-  const commentMap = Object.fromEntries(commentCounts.map((c) => [String(c._id), c.count]));
-  const myLikeSet = new Set(myLikes.map((l) => String(l.post)));
+  const myLikeSet = new Set(myLikes.map((l) => String(l.targetUser)));
+  const tasteMap = Object.fromEntries(tasteAgs.map((t) => [String(t._id), { avg: t.avg, count: t.count }]));
 
-  const enriched = filtered.map((p) => {
-    const authorId = String(p.user._id);
-    const obj = p.toObject();
+  const userPostsMap = {};
+  for (const p of allUserPosts) {
+    const uid = String(p.user);
+    if (!userPostsMap[uid]) userPostsMap[uid] = [];
+    userPostsMap[uid].push(p);
+  }
+
+  const enriched = grouped.map((group) => {
+    const authorId = String(group.user._id);
+    const count = group.posts.length;
+    const subtitle = `Rated ${count} title${count > 1 ? 's' : ''} recently`;
+
     return {
-      ...obj,
-      duration: p.duration,
-      externalId: p.externalId,
-      artistName: p.artistName,
-      previewUrl: p.previewUrl,
-      youtubeVideoId: p.youtubeVideoId,
-      youtubeUrl: p.youtubeUrl,
-      movie: {
+      _id: authorId,
+      user: group.user,
+      subtitle,
+      posts: group.posts.map(p => ({
         _id: p._id,
         title: p.title,
         poster: p.poster,
-        backdrop: p.poster,
+        rating: p.rating,
         type: p.type === "series" ? "show" : p.type,
-        genres: p.genres,
-        artistName: p.artistName,
-        previewUrl: p.previewUrl,
-        youtubeVideoId: p.youtubeVideoId,
-        youtubeUrl: p.youtubeUrl,
-        duration: p.duration,
         externalId: p.externalId,
-      },
-      likesCount: likeMap[String(p._id)] || 0,
-      commentsCount: commentMap[String(p._id)] || 0,
-      isLiked: myLikeSet.has(String(p._id)),
+        createdAt: p.createdAt,
+        previewUrl: p.type === "music" ? p.previewUrl : undefined,
+        artistName: p.type === "music" ? p.artistName : undefined,
+        duration: p.type === "music" ? p.duration : undefined,
+        youtubeVideoId: p.type === "music" ? p.youtubeVideoId : undefined,
+      })),
+      likesCount: likeMap[authorId] || 0,
+      isLiked: myLikeSet.has(authorId),
       isFollowing: followingIds.includes(authorId),
-      isOwnPost: viewerId && authorId === String(viewerId),
+      isOwnProfile: viewerId && authorId === String(viewerId),
+      latestPostDate: group.posts[0].createdAt,
+      communityRating: tasteMap[authorId] ? Number(tasteMap[authorId].avg.toFixed(1)) : null,
+      communityRatingCount: tasteMap[authorId] ? tasteMap[authorId].count : 0,
+      topGenres: computeGenreStats(userPostsMap[authorId] || []).slice(0, 3).map(g => g.genre),
     };
   });
 
   enriched.sort((a, b) => {
-    const aFollow = followingIds.includes(String(a.user._id)) ? 1 : 0;
-    const bFollow = followingIds.includes(String(b.user._id)) ? 1 : 0;
+    const aFollow = a.isFollowing ? 1 : 0;
+    const bFollow = b.isFollowing ? 1 : 0;
     if (aFollow !== bFollow) return bFollow - aFollow;
-    return new Date(b.createdAt) - new Date(a.createdAt);
+    return new Date(b.latestPostDate) - new Date(a.latestPostDate);
   });
 
-  const slice = enriched.slice(0, 30);
-  if (!viewerId) return slice;
-
-  const ownPosts = slice.filter((p) => p.isOwnPost);
-  if (!ownPosts.length) return slice;
-
-  const flagged = await attachFavoriteFlags(viewerId, ownPosts);
-  const flagMap = Object.fromEntries(flagged.map((p) => [String(p._id), p.isFavorite]));
-
-  return slice.map((p) =>
-    p.isOwnPost ? { ...p, isFavorite: Boolean(flagMap[String(p._id)]) } : p
-  );
+  return enriched.slice(0, 30);
 };
 
 const assertOwner = (post, userId) => {

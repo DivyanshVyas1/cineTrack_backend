@@ -24,14 +24,33 @@ const computeGenreStats = (posts) => {
   const entries = Object.entries(buckets);
   if (!entries.length) return [];
 
-  const totalWeighted = entries.reduce((s, [, b]) => s + b.sumRating, 0);
-  if (totalWeighted <= 0) return [];
+  // Find max count to normalize counts (0 to 1)
+  const maxCount = Math.max(...entries.map(([, b]) => b.count));
+  if (maxCount === 0) return [];
 
-  return entries
-    .map(([genre, b]) => ({
+  let totalScore = 0;
+  const scoredEntries = entries.map(([genre, b]) => {
+    const avgRating = b.sumRating / b.count;
+    
+    // Normalize avgRating (assuming 0-10 scale)
+    const normRating = avgRating / 10;
+    // Normalize count (relative to the genre with most titles)
+    const normCount = b.count / maxCount;
+    
+    // 70% weight for average rating, 30% weight for number of titles
+    const score = (0.7 * normRating) + (0.3 * normCount);
+    totalScore += score;
+    
+    return { genre, b, score, avgRating };
+  });
+
+  if (totalScore <= 0) return [];
+
+  return scoredEntries
+    .map(({ genre, b, score, avgRating }) => ({
       genre,
-      percent: Math.round((b.sumRating / totalWeighted) * 1000) / 10,
-      avgRating: Math.round((b.sumRating / b.count) * 10) / 10,
+      percent: Math.round((score / totalScore) * 1000) / 10,
+      avgRating: Math.round(avgRating * 10) / 10,
       count: b.count,
     }))
     .sort((a, b) => b.percent - a.percent);
