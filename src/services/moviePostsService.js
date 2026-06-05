@@ -61,11 +61,19 @@ const getPostsForMovie = async (movieId, viewerId) => {
     .limit(100);
 
   const visible = [];
+  let totalCount = 0;
+  const allRatings = [];
+
   for (const post of posts) {
     const authorId = String(post.user._id);
     const isAuthor = viewerId && authorId === String(viewerId);
 
     if (post.visibility === "private" && !isAuthor) continue;
+
+    totalCount++;
+    if (Number.isFinite(Number(post.rating))) {
+      allRatings.push(Number(post.rating));
+    }
 
     if (post.user.isPrivate && !isAuthor) {
       const allowed = await canViewPrivateUserContent(viewerId, post.user._id);
@@ -75,16 +83,15 @@ const getPostsForMovie = async (movieId, viewerId) => {
     visible.push(enrichPostForMoviePage(post, movie));
   }
 
-  const ratings = visible.map((p) => Number(p.rating)).filter((n) => Number.isFinite(n));
   const average =
-    ratings.length > 0
-      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+    allRatings.length > 0
+      ? Math.round((allRatings.reduce((a, b) => a + b, 0) / allRatings.length) * 10) / 10
       : null;
 
   return {
     movie,
     reviews: visible,
-    stats: { count: visible.length, average },
+    stats: { count: totalCount, average },
   };
 };
 
