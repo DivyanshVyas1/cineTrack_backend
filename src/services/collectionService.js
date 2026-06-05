@@ -39,8 +39,9 @@ const getUserCollection = async ({ username, tab, section, viewerId }) => {
         postQuery.visibility = "public";
       }
     }
-    const posts = await Post.find(postQuery).sort({ createdAt: -1 });
-    
+    const posts = await Post.find(postQuery)
+      .populate("user", "name username avatar isPrivate")
+      .sort({ createdAt: -1 });
     const postIds = posts.map((p) => p._id);
     const Like = require("../models/Like");
     const Comment = require("../models/Comment");
@@ -97,8 +98,9 @@ const getUserCollection = async ({ username, tab, section, viewerId }) => {
         postQuery.visibility = "public";
       }
     }
-    const posts = await Post.find(postQuery).sort({ createdAt: -1 });
-    
+    const posts = await Post.find(postQuery)
+      .populate("user", "name username avatar isPrivate")
+      .sort({ createdAt: -1 });
     const postIds = posts.map((p) => p._id);
     const Like = require("../models/Like");
     const Comment = require("../models/Comment");

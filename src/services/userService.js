@@ -117,6 +117,7 @@ const getUserReviews = async (username, viewerId) => {
 
   return Review.find({ user: user._id })
     .populate("movie")
+    .populate("user", "name username avatar isPrivate")
     .sort({ createdAt: -1 })
     .limit(50);
 };
