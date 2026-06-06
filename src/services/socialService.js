@@ -97,6 +97,13 @@ const unfollowUser = async (followerId, targetUsername) => {
   return { following: false, requestPending: false };
 };
 
+const removeFollower = async (userId, followerUsername) => {
+  const follower = await User.findOne({ username: followerUsername });
+  if (!follower) throw new Error("Follower not found");
+  await Follow.deleteOne({ follower: follower._id, following: userId });
+  return { success: true };
+};
+
 const cancelFollowRequest = async (followerId, targetUsername) => {
   const target = await User.findOne({ username: targetUsername });
   if (!target) throw new Error("User not found");
@@ -200,6 +207,7 @@ module.exports = {
   getComments,
   followUser,
   unfollowUser,
+  removeFollower,
   cancelFollowRequest,
   getFollowStatus,
   getSocialStats,

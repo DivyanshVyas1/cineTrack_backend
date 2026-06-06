@@ -13,6 +13,7 @@ const {
 const {
   follow,
   unfollow,
+  removeFollower,
   followStatus,
   getFollowers,
   getFollowing,
@@ -38,6 +39,7 @@ router.post("/me/follow-requests/:id/accept", authMiddleware, acceptFollowReques
 router.delete("/me/follow-requests/:id", authMiddleware, rejectFollowRequest);
 router.post("/:username/follow", authMiddleware, follow);
 router.delete("/:username/follow", authMiddleware, unfollow);
+router.delete("/me/followers/:username", authMiddleware, removeFollower);
 router.delete("/:username/follow-request", authMiddleware, cancelFollowRequest);
 router.get("/:username/follow-status", authMiddleware, followStatus);
 router.get("/:username/followers", optionalAuthMiddleware, getFollowers);

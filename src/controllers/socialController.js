@@ -33,6 +33,11 @@ const unfollow = asyncHandler(async (req, res) => {
   successResponse(res, data, "Unfollowed");
 });
 
+const removeFollower = asyncHandler(async (req, res) => {
+  const data = await socialService.removeFollower(req.user.id, req.params.username);
+  successResponse(res, data, "Follower removed");
+});
+
 const followStatus = asyncHandler(async (req, res) => {
   const data = await socialService.getFollowStatus(req.user.id, req.params.username);
   successResponse(res, data, "Follow status fetched");
@@ -80,6 +85,7 @@ module.exports = {
   getComments,
   follow,
   unfollow,
+  removeFollower,
   cancelFollowRequest,
   followStatus,
   getFollowers,
