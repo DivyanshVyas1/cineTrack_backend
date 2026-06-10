@@ -3,6 +3,7 @@ const User = require("../models/User");
 const userService = require("../services/userService");
 const collectionService = require("../services/collectionService");
 const { getTasteSuggestions } = require("../services/tasteMatchService");
+const { getComparisonData } = require("../services/comparisonService");
 const { successResponse } = require("../utils/responseFormatter");
 
 const myProfile = asyncHandler(async (req, res) => {
@@ -71,6 +72,11 @@ const getTasteMatchSuggestions = asyncHandler(async (req, res) => {
   successResponse(res, data, "Taste suggestions fetched");
 });
 
+const compareProfiles = asyncHandler(async (req, res) => {
+  const data = await getComparisonData(req.user.id, req.params.username);
+  successResponse(res, data, "Comparison data fetched");
+});
+
 module.exports = {
   myProfile,
   getProfile,
@@ -81,4 +87,5 @@ module.exports = {
   addListItem,
   rateUserTaste,
   getTasteMatchSuggestions,
+  compareProfiles,
 };

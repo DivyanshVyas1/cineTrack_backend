@@ -24,9 +24,16 @@ const getProfileByUsername = async (username, viewerId) => {
       ? await socialService.getFollowStatus(viewerId, username)
       : { isFollowing: false, requestPending: false, followersCount: 0, followingCount: 0 };
     const canViewContent = status.isFollowing;
-    const genreOverall = await getGenreStatsForUser(Post, user._id);
-    const tasteMatch = viewerId ? await getTasteMatchBetween(viewerId, user._id) : null;
-    const postsCount = await Post.countDocuments({ user: user._id });
+    const [genreOverall, tasteMatch, postsCount, watchTimeAgs] = await Promise.all([
+      getGenreStatsForUser(Post, user._id),
+      viewerId ? getTasteMatchBetween(viewerId, user._id) : null,
+      Post.countDocuments({ user: user._id }),
+      Post.aggregate([
+        { $match: { user: user._id, type: { $in: ["movie", "series"] } } },
+        { $group: { _id: null, total: { $sum: "$duration" } } }
+      ])
+    ]);
+    const totalWatchTime = watchTimeAgs.length > 0 ? watchTimeAgs[0].total : 0;
 
     return {
       user: {
@@ -51,11 +58,12 @@ const getProfileByUsername = async (username, viewerId) => {
         postsCount,
         averageRating: null,
         ratingsCount: 0,
+        totalWatchTime,
       },
     };
   }
 
-  const [social, ratingStats, tasteReviews, genreOverall, postsCount] = await Promise.all([
+  const [social, ratingStats, tasteReviews, genreOverall, postsCount, watchTimeAgs] = await Promise.all([
     socialService.getSocialStats(user._id),
     getCommunityAverageRating(user._id),
     TasteRating.find({ profileUser: user._id })
@@ -64,7 +72,12 @@ const getProfileByUsername = async (username, viewerId) => {
       .limit(12),
     getGenreStatsForUser(Post, user._id),
     Post.countDocuments({ user: user._id }),
+    Post.aggregate([
+      { $match: { user: user._id, type: { $in: ["movie", "series"] } } },
+      { $group: { _id: null, total: { $sum: "$duration" } } }
+    ]),
   ]);
+  const totalWatchTime = watchTimeAgs.length > 0 ? watchTimeAgs[0].total : 0;
 
   let isFollowing = false;
   let requestPending = false;
@@ -101,6 +114,7 @@ const getProfileByUsername = async (username, viewerId) => {
       postsCount,
       averageRating: ratingStats.averageRating,
       ratingsCount: ratingStats.ratingsCount,
+      totalWatchTime,
     },
   };
 };

@@ -6,6 +6,7 @@ const User = require("../models/User");
 const { attachFavoriteFlags } = require("./postFavoriteService");
 const TasteRating = require("../models/TasteRating");
 const { computeGenreStats } = require("./genreStatsService");
+const { getMediaDuration } = require("./mediaSearchService");
 
 const getFollowingIds = async (userId) => {
   if (!userId) return [];
@@ -44,6 +45,11 @@ const createPost = async (userId, body) => {
   const postType = body.type;
   const genres = postType === "music" ? [] : body.genres || [];
 
+  let duration = Number(body.duration) || 0;
+  if (duration === 0 && (postType === "movie" || postType === "series" || postType === "show") && body.externalId) {
+    duration = await getMediaDuration(body.externalId, postType);
+  }
+
   return Post.create({
     user: userId,
     type: postType,
@@ -53,7 +59,7 @@ const createPost = async (userId, body) => {
     previewUrl: body.previewUrl || "",
     youtubeVideoId: body.youtubeVideoId || body.videoId || "",
     youtubeUrl: body.youtubeUrl || "",
-    duration: Number(body.duration) || 0,
+    duration,
     genres,
     poster: body.poster || "",
     rating: body.rating,
@@ -126,7 +132,7 @@ const getFeed = async (viewerId) => {
       { $match: { profileUser: { $in: userIds } } },
       { $group: { _id: "$profileUser", avg: { $avg: "$score" }, count: { $sum: 1 } } }
     ]),
-    Post.find({ user: { $in: userIds } }).select("user genres rating")
+    Post.find({ user: { $in: userIds } }).select("user genres rating type duration")
   ]);
 
   const likeMap = Object.fromEntries(likeCounts.map((l) => [String(l._id), l.count]));
@@ -140,10 +146,30 @@ const getFeed = async (viewerId) => {
     userPostsMap[uid].push(p);
   }
 
+  const formatWatchTime = (minutes) => {
+    if (!minutes || isNaN(minutes) || minutes === 0) return "0m";
+    const m = Math.floor(minutes);
+    const days = Math.floor(m / (24 * 60));
+    const hours = Math.floor((m % (24 * 60)) / 60);
+    const remainingMinutes = m % 60;
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${remainingMinutes}m`;
+    return `${remainingMinutes}m`;
+  };
+
   const enriched = grouped.map((group) => {
     const authorId = String(group.user._id);
-    const count = group.posts.length;
-    const subtitle = `Rated ${count} title${count > 1 ? 's' : ''} recently`;
+    
+    const userPosts = userPostsMap[authorId] || [];
+    let watchTimeMinutes = 0;
+    for (const p of userPosts) {
+      if ((p.type === "movie" || p.type === "series" || p.type === "show") && p.duration) {
+        watchTimeMinutes += p.duration;
+      }
+    }
+    
+    const subtitle = `Completed ${formatWatchTime(watchTimeMinutes)} of watchtime`;
 
     return {
       _id: authorId,

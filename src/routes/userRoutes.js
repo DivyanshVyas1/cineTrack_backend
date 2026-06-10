@@ -9,6 +9,7 @@ const {
   addListItem,
   rateUserTaste,
   getTasteMatchSuggestions,
+  compareProfiles,
 } = require("../controllers/userController");
 const {
   follow,
@@ -48,6 +49,7 @@ router.get("/:username/collection", optionalAuthMiddleware, getCollection);
 router.post("/:username/taste", authMiddleware, rateUserTaste);
 router.post("/:id/like", authMiddleware, toggleLike);
 router.get("/:username/reviews", optionalAuthMiddleware, getReviews);
+router.get("/:username/compare", authMiddleware, compareProfiles);
 router.get("/:username", optionalAuthMiddleware, getProfile);
 
 module.exports = router;

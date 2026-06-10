@@ -124,4 +124,29 @@ const searchSuggestions = async (query, type) => {
   return searchTmdb(q, normalized);
 };
 
-module.exports = { searchSuggestions, normalizeType };
+const getMediaDuration = async (externalId, type) => {
+  if (!externalId) return 0;
+  try {
+    const isSeries = normalizeType(type) === "series";
+    const data = await tmdbGet(isSeries ? `/tv/${externalId}` : `/movie/${externalId}`);
+    if (isSeries) {
+      let runTime = 0;
+      if (data.episode_run_time && data.episode_run_time.length > 0) {
+        runTime = data.episode_run_time[0];
+      } else if (data.episode_run_time === undefined && data.runtime) {
+        runTime = data.runtime;
+      } else {
+        runTime = 45; // default fallback for shows
+      }
+      const episodes = data.number_of_episodes || 1;
+      return runTime * episodes;
+    } else {
+      return data.runtime || 0;
+    }
+  } catch (err) {
+    console.error(`Failed to get duration for ${type} ${externalId}:`, err.message);
+    return 0;
+  }
+};
+
+module.exports = { searchSuggestions, normalizeType, getMediaDuration };

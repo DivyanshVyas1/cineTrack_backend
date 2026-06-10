@@ -32,13 +32,9 @@ const computeGenreStats = (posts) => {
   const scoredEntries = entries.map(([genre, b]) => {
     const avgRating = b.sumRating / b.count;
     
-    // Normalize avgRating (assuming 0-10 scale)
-    const normRating = avgRating / 10;
-    // Normalize count (relative to the genre with most titles)
-    const normCount = b.count / maxCount;
-    
-    // 70% weight for average rating, 30% weight for number of titles
-    const score = (0.7 * normRating) + (0.3 * normCount);
+    // New formula: GenreAffinity = GenreWatchCount * sumRating * log(GenreWatchCount + 1)
+    const rawScore = b.count * b.sumRating * Math.log10(b.count + 1);
+    const score = rawScore > 0 ? Math.pow(rawScore, 0.3) : 0;
     totalScore += score;
     
     return { genre, b, score, avgRating };
