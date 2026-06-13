@@ -56,7 +56,7 @@ const getPostsForMovie = async (movieId, viewerId) => {
   }
 
   const posts = await Post.find(query)
-    .populate("user", "name username avatar isPrivate")
+    .populate("user", "name username avatar isPrivate topBadges")
     .sort({ createdAt: -1 })
     .limit(100);
 

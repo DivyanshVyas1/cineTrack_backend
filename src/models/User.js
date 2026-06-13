@@ -25,6 +25,26 @@ const userSchema = new mongoose.Schema(
         source: { type: String, trim: true },
       },
     ],
+    achievements: [
+      {
+        badgeId: { type: String, required: true },
+        unlockedAt: { type: Date, default: Date.now },
+      },
+    ],
+    topBadges: [
+      {
+        trackId: String,
+        tierName: String,
+        icon: String,
+        color: String,
+        bg: String,
+        border: String,
+        glow: String,
+      }
+    ],
+    watchlistCompletions: { type: Number, default: 0 },
+    comparedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    lastActiveAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );

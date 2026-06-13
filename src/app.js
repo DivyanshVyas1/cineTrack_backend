@@ -13,9 +13,9 @@ const adminRoutes = require("./routes/adminRoutes");
 const founderRoutes = require("./routes/founderRoutes");
 const searchRoutes = require("./routes/searchRoutes");
 const discoverRoutes = require("./routes/discoverRoutes");
-const musicRoutes = require("./routes/musicRoutes");
 const titleRoutes = require("./routes/titleRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const shortsRoutes = require("./routes/shortsRoutes");
 const notFoundMiddleware = require("./middleware/notFoundMiddleware");
 const errorMiddleware = require("./middleware/errorMiddleware");
 
@@ -71,10 +71,10 @@ app.use("/api/founder-suggestions", founderRoutes);
 const { mediaSearch: searchMedia } = require("./controllers/searchController");
 app.get("/api/search", searchMedia);
 app.use("/api/search", searchRoutes);
-app.use("/api/music", musicRoutes);
 app.use("/api/titles", titleRoutes);
 app.use("/api/discover", discoverRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/shorts", shortsRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

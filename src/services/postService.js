@@ -3,10 +3,13 @@ const Follow = require("../models/Follow");
 const Like = require("../models/Like");
 const Comment = require("../models/Comment");
 const User = require("../models/User");
+const Movie = require("../models/Movie");
+const UserListEntry = require("../models/UserListEntry");
 const { attachFavoriteFlags } = require("./postFavoriteService");
 const TasteRating = require("../models/TasteRating");
 const { computeGenreStats } = require("./genreStatsService");
 const { getMediaDuration } = require("./mediaSearchService");
+const { updateTopBadges } = require("./achievementService");
 
 const getFollowingIds = async (userId) => {
   if (!userId) return [];
@@ -67,6 +70,25 @@ const createPost = async (userId, body) => {
     isSpoiler: Boolean(body.isSpoiler),
     visibility,
   });
+
+  try {
+    const listMovieType = postType === "series" ? "show" : postType;
+    const movie = await Movie.findOne({ title: body.title?.trim(), type: listMovieType });
+    if (movie) {
+      const deletedEntry = await UserListEntry.findOneAndDelete({
+        user: userId,
+        movie: movie._id,
+        listType: "watchlist"
+      });
+      if (deletedEntry) {
+        await User.findByIdAndUpdate(userId, { $inc: { watchlistCompletions: 1 } });
+      }
+    }
+  } catch (err) {
+    console.error("Watchlist completion tracking error:", err);
+  }
+
+  return post;
 };
 
 const getFeed = async (viewerId) => {
@@ -84,7 +106,7 @@ const getFeed = async (viewerId) => {
   }
 
   const posts = await Post.find(postQuery)
-    .populate("user", "name username avatar isPrivate")
+    .populate("user", "name username avatar isPrivate topBadges")
     .sort({ createdAt: -1 })
     .limit(200);
 
@@ -121,8 +143,8 @@ const getFeed = async (viewerId) => {
   const grouped = Array.from(userMap.values());
   const userIds = grouped.map((g) => g.user._id);
 
-  // Fetch likes for these users (profile likes), taste ratings, and all posts for genre stats
-  const [likeCounts, myLikes, tasteAgs, allUserPosts] = await Promise.all([
+  // Fetch likes for these users (profile likes), taste ratings, and aggregations for stats
+  const [likeCounts, myLikes, tasteAgs, watchTimeAgg, genreAgg] = await Promise.all([
     Like.aggregate([
       { $match: { targetUser: { $in: userIds } } },
       { $group: { _id: "$targetUser", count: { $sum: 1 } } },
@@ -132,19 +154,24 @@ const getFeed = async (viewerId) => {
       { $match: { profileUser: { $in: userIds } } },
       { $group: { _id: "$profileUser", avg: { $avg: "$score" }, count: { $sum: 1 } } }
     ]),
-    Post.find({ user: { $in: userIds } }).select("user genres rating type duration")
+    Post.aggregate([
+      { $match: { user: { $in: userIds }, type: { $in: ["movie", "series", "show"] } } },
+      { $group: { _id: "$user", watchTime: { $sum: "$duration" } } }
+    ]),
+    Post.aggregate([
+      { $match: { user: { $in: userIds } } },
+      { $unwind: "$genres" },
+      { $group: { _id: { user: "$user", genre: "$genres" }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $group: { _id: "$_id.user", topGenres: { $push: "$_id.genre" } } }
+    ])
   ]);
 
   const likeMap = Object.fromEntries(likeCounts.map((l) => [String(l._id), l.count]));
   const myLikeSet = new Set(myLikes.map((l) => String(l.targetUser)));
   const tasteMap = Object.fromEntries(tasteAgs.map((t) => [String(t._id), { avg: t.avg, count: t.count }]));
-
-  const userPostsMap = {};
-  for (const p of allUserPosts) {
-    const uid = String(p.user);
-    if (!userPostsMap[uid]) userPostsMap[uid] = [];
-    userPostsMap[uid].push(p);
-  }
+  const watchTimeMap = Object.fromEntries(watchTimeAgg.map((w) => [String(w._id), w.watchTime]));
+  const genreMap = Object.fromEntries(genreAgg.map((g) => [String(g._id), g.topGenres]));
 
   const formatWatchTime = (minutes) => {
     if (!minutes || isNaN(minutes) || minutes === 0) return "0m";
@@ -161,13 +188,7 @@ const getFeed = async (viewerId) => {
   const enriched = grouped.map((group) => {
     const authorId = String(group.user._id);
     
-    const userPosts = userPostsMap[authorId] || [];
-    let watchTimeMinutes = 0;
-    for (const p of userPosts) {
-      if ((p.type === "movie" || p.type === "series" || p.type === "show") && p.duration) {
-        watchTimeMinutes += p.duration;
-      }
-    }
+    const watchTimeMinutes = watchTimeMap[authorId] || 0;
     
     const subtitle = `Completed ${formatWatchTime(watchTimeMinutes)} of watchtime`;
 
@@ -195,7 +216,7 @@ const getFeed = async (viewerId) => {
       latestPostDate: group.posts[0].createdAt,
       communityRating: tasteMap[authorId] ? Number(tasteMap[authorId].avg.toFixed(1)) : null,
       communityRatingCount: tasteMap[authorId] ? tasteMap[authorId].count : 0,
-      topGenres: computeGenreStats(userPostsMap[authorId] || []).slice(0, 3).map(g => g.genre),
+      topGenres: (genreMap[authorId] || []).slice(0, 3),
     };
   });
 
@@ -232,10 +253,12 @@ const updatePost = async (postId, userId, body) => {
   if (body.isSpoiler !== undefined) updates.isSpoiler = Boolean(body.isSpoiler);
   if (body.visibility !== undefined) updates.visibility = body.visibility;
 
-  return Post.findByIdAndUpdate(postId, updates, { new: true }).populate(
+  const updatedPost = await Post.findByIdAndUpdate(postId, updates, { new: true }).populate(
     "user",
-    "name username avatar"
+    "name username avatar isPrivate topBadges"
   );
+  updateTopBadges(userId).catch(console.error);
+  return updatedPost;
 };
 
 const deletePost = async (postId, userId) => {
@@ -244,6 +267,7 @@ const deletePost = async (postId, userId) => {
 
   await Promise.all([Like.deleteMany({ post: postId }), Comment.deleteMany({ post: postId })]);
   await post.deleteOne();
+  updateTopBadges(userId).catch(console.error);
   return { deleted: true };
 };
 

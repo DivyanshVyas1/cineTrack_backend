@@ -16,10 +16,17 @@ const authMiddleware = async (req, res, next) => {
   }
 
   try {
-    const user = await User.findById(decoded.id).select("isBanned");
+    const user = await User.findById(decoded.id).select("isBanned lastActiveAt");
     if (!user || user.isBanned) {
       return res.status(403).json({ success: false, message: "This account is banned or no longer exists." });
     }
+
+    // Update lastActiveAt if more than 5 minutes ago (throttle DB writes)
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    if (!user.lastActiveAt || user.lastActiveAt.getTime() < fiveMinutesAgo) {
+      await User.updateOne({ _id: user._id }, { $set: { lastActiveAt: new Date() } });
+    }
+
     req.user = decoded;
     next();
   } catch (err) {

@@ -1,6 +1,7 @@
 const Post = require("../models/Post");
 const User = require("../models/User");
 const { getTasteMatchBetween } = require("./tasteMatchService");
+const { incrementTasteMatches } = require("./analyticsService");
 
 const buildTitleKey = (post) => {
   const type = post.type;
@@ -18,6 +19,13 @@ const getComparisonData = async (viewerId, targetUsername) => {
   if (String(viewerId) === String(targetUser._id)) {
     throw new Error("Cannot compare with yourself");
   }
+
+  // Track the comparison for the Soulmate achievement
+  await User.findByIdAndUpdate(viewerId, {
+    $addToSet: { comparedUsers: targetUser._id }
+  });
+
+  incrementTasteMatches().catch(() => {});
 
   const viewerUser = await User.findById(viewerId).select("-password");
 

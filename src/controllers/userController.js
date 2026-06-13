@@ -3,6 +3,8 @@ const User = require("../models/User");
 const userService = require("../services/userService");
 const collectionService = require("../services/collectionService");
 const { getTasteSuggestions } = require("../services/tasteMatchService");
+const { getTasteMatchBetween, getSuggestions } = require("../services/tasteMatchService");
+const { getUserProgress } = require("../services/achievementService");
 const { getComparisonData } = require("../services/comparisonService");
 const { successResponse } = require("../utils/responseFormatter");
 
@@ -21,6 +23,16 @@ const getReviews = asyncHandler(async (req, res) => {
   successResponse(res, data, "Reviews fetched");
 });
 
+const getAchievements = asyncHandler(async (req, res) => {
+  const user = await User.findOne({ username: req.params.username });
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+  const progress = await getUserProgress(user._id);
+  successResponse(res, progress, "Achievements fetched");
+});
+
 const updatePrivacy = asyncHandler(async (req, res) => {
   const user = await userService.updatePrivacy(req.user.id, req.body.isPrivate);
   successResponse(res, user, "Privacy updated");
@@ -33,6 +45,7 @@ const updateMyProfile = asyncHandler(async (req, res) => {
     characters: req.body.characters,
     ganduCharacters: req.body.ganduCharacters,
   });
+  
   successResponse(res, user, "Profile updated");
 });
 
@@ -77,6 +90,7 @@ const compareProfiles = asyncHandler(async (req, res) => {
   successResponse(res, data, "Comparison data fetched");
 });
 
+
 module.exports = {
   myProfile,
   getProfile,
@@ -88,4 +102,5 @@ module.exports = {
   rateUserTaste,
   getTasteMatchSuggestions,
   compareProfiles,
+  getAchievements,
 };

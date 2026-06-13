@@ -13,7 +13,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.12",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
@@ -24,7 +23,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "morgan": "^1.10.1",
-    "youtube-dl-exec": "^3.1.7",
+    "youtube-sr": "^4.3.12",
     "ytmusic-api": "^5.3.1"
   },
   "devDependencies": {

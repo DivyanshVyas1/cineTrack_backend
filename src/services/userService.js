@@ -131,7 +131,7 @@ const getUserReviews = async (username, viewerId) => {
 
   return Review.find({ user: user._id })
     .populate("movie")
-    .populate("user", "name username avatar isPrivate")
+    .populate("user", "name username avatar isPrivate topBadges")
     .sort({ createdAt: -1 })
     .limit(50);
 };
@@ -143,7 +143,7 @@ const updatePrivacy = async (userId, isPrivate) => {
 };
 
 const MAX_BIO_LENGTH = 280;
-const MAX_AVATAR_LENGTH = 500_000;
+const MAX_AVATAR_LENGTH = 2_000_000;
 
 const normalizeCharacters = (list, label) => {
   if (!Array.isArray(list) || list.length > 3) {

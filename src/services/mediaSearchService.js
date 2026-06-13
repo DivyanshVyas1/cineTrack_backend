@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { incrementTmdbCalls } = require("./analyticsService");
 
 const TMDB_BASE = "https://api.tmdb.org/3";
 const TMDB_IMAGE = "https://image.tmdb.org/t/p/w500";
@@ -24,6 +25,8 @@ const tmdbGet = async (path, extraParams = {}) => {
     headers: { Accept: "application/json" },
     timeout: 15000,
   });
+
+  incrementTmdbCalls().catch(() => {});
 
   return data;
 };

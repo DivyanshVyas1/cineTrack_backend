@@ -112,10 +112,29 @@ const getTitleDetail = async (type, title, externalId, viewerId) => {
     genres: sample.genres || [],
   };
 
+  let inWatchlist = false;
+  if (viewerId) {
+    const UserListEntry = require("../models/UserListEntry");
+    const Movie = require("../models/Movie");
+    const movieDoc = await Movie.findOne({
+      title: new RegExp(`^${escapeRegex(sample.title)}$`, "i"),
+      type: { $in: [sample.type, mapPostTypeToDisplay(sample.type), "show", "series"] }
+    });
+    if (movieDoc) {
+      const entry = await UserListEntry.findOne({
+        user: viewerId,
+        movie: movieDoc._id,
+        listType: "watchlist"
+      });
+      if (entry) inWatchlist = true;
+    }
+  }
+
   return {
     title: titleInfo,
     reviews: visible,
     stats: { count: totalCount, average },
+    inWatchlist,
   };
 };
 
